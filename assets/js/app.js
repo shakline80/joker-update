@@ -39,6 +39,21 @@ document.addEventListener('DOMContentLoaded', () => {
   const openButton = document.querySelector('.open-button');
   const flipCardScreen = document.getElementById(SCREENS.flipCard);
 
+  // On first load, show home screen instantly — no fade-in on initial paint
+  const homeScreen = document.getElementById(SCREENS.home);
+  if (homeScreen) {
+    homeScreen.classList.add('no-transition', 'active');
+    // Strip no-transition after one frame so future transitions work
+    requestAnimationFrame(() => homeScreen.classList.remove('no-transition'));
+  }
+
+  // Pre-warm screen 2 video so it has frames ready when the screen fades in
+  const prewarmVideo = document.getElementById('myVideo');
+  if (prewarmVideo) {
+    prewarmVideo.muted = true;
+    prewarmVideo.play().then(() => prewarmVideo.pause()).catch(() => {});
+  }
+
   /** Cancel any pending auto-advance timer. */
   function clearAutoAdvance() {
     if (autoAdvanceTimer !== null) {
@@ -68,9 +83,10 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   /**
-   * Show one game screen and hide the rest.
-   * Outgoing screen fades out (leaving class), then incoming fades in (active class).
-   * @param {string} screenId - Target screen element id
+   * Crossfade to a new screen. Outgoing fades out while incoming fades in.
+   * Videos on the incoming screen are started one frame before the fade
+   * so they have decoded frames ready — no black flash.
+   * @param {string} screenId
    * @param {{ withSound?: boolean }} options
    */
   function showScreen(screenId, options = {}) {
@@ -83,23 +99,27 @@ document.addEventListener('DOMContentLoaded', () => {
     const nextScreen = document.getElementById(screenId);
     if (!nextScreen) return;
 
-    // Start fade-out on current screen
-    if (outgoing) {
-      outgoing.classList.remove('active');
-      outgoing.classList.add('leaving');
-      // Clean up leaving class after transition completes
-      outgoing.addEventListener('transitionend', () => {
-        outgoing.classList.remove('leaving');
-      }, { once: true });
-    }
-
     currentScreen = screenId;
 
-    // Small delay so outgoing fade starts before incoming appears
-    setTimeout(() => {
-      nextScreen.classList.add('active');
+    // Pre-start any video on the incoming screen one frame early
+    // so the decoder has frames ready when opacity starts rising
+    requestAnimationFrame(() => {
+      if (screenId === SCREENS.heightReward) {
+        const v = document.getElementById('myVideo');
+        if (v) { v.muted = !(options.withSound); v.currentTime = 0; v.play().catch(() => {}); }
+      }
 
-      // Bottom menu bar only visible on home screen
+      // Mark outgoing — fades out
+      if (outgoing) {
+        outgoing.classList.remove('active');
+        outgoing.classList.add('leaving');
+        outgoing.addEventListener('transitionend', () => {
+          outgoing.classList.remove('leaving');
+        }, { once: true });
+      }
+
+      // Mark incoming — fades in
+      nextScreen.classList.add('active');
       document.body.classList.toggle('with-menubar', screenId === SCREENS.home);
 
       switch (screenId) {
@@ -107,6 +127,7 @@ document.addEventListener('DOMContentLoaded', () => {
           resetGameState();
           break;
         case SCREENS.heightReward:
+          // video already started above; just handle sound state
           initHeightRewardVideo(Boolean(options.withSound));
           break;
         case SCREENS.magicBox:
@@ -121,7 +142,7 @@ document.addEventListener('DOMContentLoaded', () => {
           nextScreen.querySelector('.video-win-bg')?.play().catch(() => {});
           break;
       }
-    }, 80); // slight overlap: outgoing starts fading, then incoming begins
+    });
   }
 
   /** Reset letters, cards, and magic videos when returning home. */
