@@ -316,7 +316,7 @@ document.addEventListener('DOMContentLoaded', () => {
       // Once all cards are flipped, auto-advance to Claim Win after 5–10 seconds
       if (checkAllFlipped() && winStage === 0) {
         winStage = 1;
-        const delay = Math.floor(Math.random() * 1000) + 3000; // random 3000–4000 ms
+        const delay = Math.floor(Math.random() * 1000) + 2000; // random 3000–4000 ms
         autoAdvanceTimer = setTimeout(() => {
           if (currentScreen === SCREENS.flipCard) {
             showScreen(SCREENS.claimWin);
