@@ -69,6 +69,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   /**
    * Show one game screen and hide the rest.
+   * Outgoing screen fades out (leaving class), then incoming fades in (active class).
    * @param {string} screenId - Target screen element id
    * @param {{ withSound?: boolean }} options
    */
@@ -78,38 +79,49 @@ document.addEventListener('DOMContentLoaded', () => {
     abortMagicSequence();
     pauseAllMedia();
 
-    document.querySelectorAll('.game-screen').forEach(screen => {
-      screen.classList.remove('active');
-    });
-
+    const outgoing = document.getElementById(currentScreen);
     const nextScreen = document.getElementById(screenId);
     if (!nextScreen) return;
 
-    nextScreen.classList.add('active');
+    // Start fade-out on current screen
+    if (outgoing) {
+      outgoing.classList.remove('active');
+      outgoing.classList.add('leaving');
+      // Clean up leaving class after transition completes
+      outgoing.addEventListener('transitionend', () => {
+        outgoing.classList.remove('leaving');
+      }, { once: true });
+    }
+
     currentScreen = screenId;
 
-    // Bottom menu bar only visible on home screen
-    document.body.classList.toggle('with-menubar', screenId === SCREENS.home);
+    // Small delay so outgoing fade starts before incoming appears
+    setTimeout(() => {
+      nextScreen.classList.add('active');
 
-    switch (screenId) {
-      case SCREENS.home:
-        resetGameState();
-        break;
-      case SCREENS.heightReward:
-        initHeightRewardVideo(Boolean(options.withSound));
-        break;
-      case SCREENS.magicBox:
-        startMagicSequence();
-        break;
-      case SCREENS.flipCard:
-        winStage = 0;
-        initFlipCardVideo(Boolean(options.withSound));
-        break;
-      case SCREENS.claimWin:
-        playWinSound();
-        nextScreen.querySelector('.video-win-bg')?.play().catch(() => {});
-        break;
-    }
+      // Bottom menu bar only visible on home screen
+      document.body.classList.toggle('with-menubar', screenId === SCREENS.home);
+
+      switch (screenId) {
+        case SCREENS.home:
+          resetGameState();
+          break;
+        case SCREENS.heightReward:
+          initHeightRewardVideo(Boolean(options.withSound));
+          break;
+        case SCREENS.magicBox:
+          startMagicSequence();
+          break;
+        case SCREENS.flipCard:
+          winStage = 0;
+          initFlipCardVideo(Boolean(options.withSound));
+          break;
+        case SCREENS.claimWin:
+          playWinSound();
+          nextScreen.querySelector('.video-win-bg')?.play().catch(() => {});
+          break;
+      }
+    }, 80); // slight overlap: outgoing starts fading, then incoming begins
   }
 
   /** Reset letters, cards, and magic videos when returning home. */
